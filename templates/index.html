@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database User Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { padding: 20px; background-color: #f8f9fa; }
+        .badge-lokal { background-color: #28a745; }
+        .badge-api { background-color: #6c757d; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 class="mb-4 fw-bold text-primary">🚀 Dummy Webservice</h2>
+
+        <div class="card mb-4 shadow-sm border-0">
+            <div class="card-body bg-white rounded">
+                <h5 class="card-title mb-3">Tambah User Baru</h5>
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <input type="text" id="inputNama" class="form-control" placeholder="Nama Lengkap">
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" id="inputCompany" class="form-control" placeholder="Perusahaan">
+                    </div>
+                    <div class="col-md-4">
+                        <button onclick="tambahUser()" class="btn btn-primary w-100">💾 Simpan ke Database</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <input type="number" id="inputId" class="form-control" placeholder="Cari ID User (Contoh: 1 atau 11)">
+                    <button onclick="cariUser()" class="btn btn-info text-white">🔍 Cari Detail</button>
+                </div>
+            </div>
+            <div class="col-md-6 text-end">
+                <button onclick="ambilData()" class="btn btn-outline-secondary">🔄 Refresh Daftar</button>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <ul id="list-user" class="list-group list-group-flush">
+                </ul>
+        </div>
+    </div>
+
+    <script>
+        window.onload = ambilData;
+
+        // --- READ LIST ---
+        async function ambilData() {
+            const list = document.getElementById('list-user');
+            list.innerHTML = '<li class="list-group-item text-center text-muted">Loading data...</li>';
+            
+            const response = await fetch('/users');
+            const data = await response.json();
+
+            let html = '';
+            data.forEach(user => {
+                const isLokal = user.sumber === 'lokal';
+                const label = isLokal 
+                    ? '<span class="badge badge-lokal">LOKAL (DB)</span>' 
+                    : '<span class="badge badge-api">API LUAR</span>';
+                
+                
+                const btnHapus = isLokal 
+                    ? `<button onclick="hapusUser(${user.id})" class="btn btn-sm btn-outline-danger ms-2">🗑</button>` 
+                    : '';
+
+                html += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold">${user.name} ${label}</div>
+                            <div class="small text-muted">🏢 ${user.company.name}</div>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="text-muted small me-2">ID: ${user.id}</span>
+                            ${btnHapus}
+                        </div>
+                    </li>
+                `;
+            });
+            list.innerHTML = html;
+        }
+
+        // --- CREATE ---
+        async function tambahUser() {
+            const nama = document.getElementById('inputNama').value;
+            const company = document.getElementById('inputCompany').value;
+            if(!nama) return alert("Nama wajib diisi!");
+
+            await fetch('/users', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name: nama, company: {name: company}, email: 'user@lokal.com' })
+            });
+
+            document.getElementById('inputNama').value = '';
+            ambilData(); 
+        }
+
+        // --- DELETE ---
+        async function hapusUser(id) {
+            if(!confirm("Hapus data ID " + id + "?")) return;
+            await fetch('/users/' + id, { method: 'DELETE' });
+            ambilData();
+        }
+
+        // --- SEARCH DETAIL ---
+        async function cariUser() {
+            const id = document.getElementById('inputId').value;
+            if(!id) return alert("Masukkan ID!");
+
+            const list = document.getElementById('list-user');
+            list.innerHTML = '<li class="list-group-item text-center">Mencari...</li>';
+
+            try {
+                const res = await fetch('/users/' + id);
+                if(!res.ok) throw new Error();
+                const user = await res.json();
+
+                const label = user.sumber === 'lokal' 
+                    ? '<span class="badge badge-lokal">DATABASE LOKAL</span>' 
+                    : '<span class="badge badge-api">API EKSTERNAL</span>';
+
+                list.innerHTML = `
+                    <li class="list-group-item bg-light p-4 text-center border">
+                        <h3>${user.name}</h3>
+                        <p>${label}</p>
+                        <hr>
+                        <p><strong>ID:</strong> ${user.id}</p>
+                        <p><strong>Email:</strong> ${user.email}</p>
+                        <p><strong>Perusahaan:</strong> ${user.company.name}</p>
+                        <button onclick="ambilData()" class="btn btn-secondary btn-sm mt-3">🔙 Kembali ke Daftar</button>
+                    </li>
+                `;
+            } catch {
+                list.innerHTML = `<li class="list-group-item text-danger text-center">❌ User ID ${id} tidak ditemukan. <br> <button onclick="ambilData()" class="btn btn-link btn-sm">Kembali</button></li>`;
+            }
+        }
+    </script>
+</body>
+</html>
